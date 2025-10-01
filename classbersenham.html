@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bresenham's Line Algorithm Visualizer</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #0d1117;
+            color: #c9d1d9;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        #controls {
+            padding: 15px;
+            background-color: #161b22;
+            border-bottom: 1px solid #30363d;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        .coord-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        label {
+            font-weight: bold;
+        }
+        input[type="number"] {
+            width: 60px;
+            padding: 8px;
+            background-color: #0d1117;
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            border-radius: 6px;
+            text-align: center;
+        }
+        button {
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: bold;
+            color: #ffffff;
+            background-color: #238636;
+            border: 1px solid rgba(240, 246, 252, 0.1);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        button:hover {
+            background-color: #2ea043;
+        }
+        #clearBtn {
+            background-color: #da3633;
+        }
+        #clearBtn:hover {
+            background-color: #f85149;
+        }
+        canvas {
+            display: block;
+            background-color: #010409;
+            cursor: grab;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="controls">
+        <div class="coord-group">
+            <label>P1:</label>
+            <input type="number" id="x1" value="1">
+            <input type="number" id="y1" value="8">
+        </div>
+        <div class="coord-group">
+            <label>P2:</label>
+            <input type="number" id="x2" value="10">
+            <input type="number" id="y2" value="2">
+        </div>
+        <button onclick="drawLine()">Draw Line</button>
+        <button id="clearBtn" onclick="clearLines()">Clear</button>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+    <script>
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+        const controlsDiv = document.getElementById('controls');
+
+        // Function to resize canvas
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight - controlsDiv.offsetHeight;
+            redraw(); // Redraw everything on resize
+        }
+
+        // Initial and state variables
+        let offsetX = canvas.width / 2;
+        let offsetY = canvas.height / 2;
+        let dragging = false;
+        let lastX, lastY;
+        let scale = 20; // Increased scale for better visibility
+        let currentLine = null;
+
+        // --- Event Listeners ---
+        canvas.addEventListener("mousedown", (e) => {
+            dragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            canvas.style.cursor = "grabbing";
+        });
+
+        canvas.addEventListener("mouseup", () => {
+            dragging = false;
+            canvas.style.cursor = "grab";
+        });
+
+        canvas.addEventListener("mousemove", (e) => {
+            if (dragging) {
+                let dx = e.clientX - lastX;
+                let dy = e.clientY - lastY;
+                offsetX += dx;
+                offsetY += dy;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                redraw();
+            }
+        });
+
+        window.addEventListener('resize', resizeCanvas);
+
+
+        // --- Control Functions ---
+        function drawLine() {
+            // Get values from input fields and ensure they are integers
+            const x1 = parseInt(document.getElementById("x1").value);
+            const y1 = parseInt(document.getElementById("y1").value);
+            const x2 = parseInt(document.getElementById("x2").value);
+            const y2 = parseInt(document.getElementById("y2").value);
+            
+            // Store the line coordinates
+            currentLine = { x1, y1, x2, y2 };
+            redraw();
+        }
+
+        function clearLines() {
+            currentLine = null;
+            redraw();
+        }
+
+      
+        function bresenham(x1, y1, x2, y2) {
+            const points = [];
+
+            // 1. Setup Phase: Transform the line to fit the simple case
+            const isSteep = Math.abs(y2 - y1) > Math.abs(x2 - x1);
+
+            if (isSteep) {
+                [x1, y1] = [y1, x1];
+                [x2, y2] = [y2, x2];
+            }
+
+            if (x1 > x2) {
+                [x1, x2] = [x2, x1];
+                [y1, y2] = [y2, y1];
+            }
+
+            // 2. Core Algorithm Logic
+            const dx = x2 - x1;
+            const dy = Math.abs(y2 - y1);
+            const ystep = (y1 < y2) ? 1 : -1;
+            let p = 2 * dy - dx ;
+            let y = y1;
+
+            for (let x = x1; x <= x2; x++) {
+                if (isSteep) {
+                    points.push([y, x]);
+                } else {
+                    points.push([x, y]);
+                }
+
+                if (p < 0) {
+                    p = p + 2 * dy;
+                } else {
+                    p = p + 2 * dy - 2 * dx;
+                    y = y + ystep;
+                }
+            }
+            return points;
+        }
+
+
+        // --- Drawing Functions ---
+        function redraw() {
+            // Ensure canvas dimensions are set before drawing
+            if (canvas.width === 0 || canvas.height === 0) return;
+
+            drawGrid();
+            if (currentLine) {
+                // Use the new bresenham function
+                const points = bresenham(currentLine.x1, currentLine.y1, currentLine.x2, currentLine.y2);
+                
+                ctx.fillStyle = "#f85149"; // A bright red color
+                
+                // *** MODIFIED PART ***
+                // The new function returns points as [x, y] arrays.
+                // We access them with p[0] for x and p[1] for y.
+                points.forEach(p => {
+                    const gridX = p[0];
+                    const gridY = p[1];
+                    // Convert grid coordinates to canvas coordinates for drawing
+                    const canvasX = offsetX + gridX * scale;
+                    // Invert y-axis for standard Cartesian plane
+                    const canvasY = offsetY - gridY * scale;      
+
+                    // Draw a pixel (a small rectangle)
+                    ctx.fillRect(canvasX, canvasY, scale, scale);
+                });
+            }
+        }
+
+        function drawGrid() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);''
+            let step = scale;
+
+            // Minor grid lines
+            ctx.strokeStyle = "#30363d";
+            ctx.lineWidth = 1;
+            for (let x = offsetX % step; x < canvas.width; x += step) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = offsetY % step; y < canvas.height; y += step) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Major axes (X and Y)
+            ctx.strokeStyle = "#58a6ff";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(0, offsetY);
+            ctx.lineTo(canvas.width, offsetY);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(offsetX, 0);
+            ctx.lineTo(offsetX, canvas.height);
+            ctx.stroke();
+
+            // Axis labels
+            ctx.fillStyle = "#8b949e";
+            ctx.font = "14px Arial";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+
+            // X-axis labels (every 5 units)
+            for (let x = offsetX % (scale * 5); x < canvas.width; x += scale * 5) {
+                let value = Math.round((x - offsetX) / scale);
+                if (value !== 0) ctx.fillText(value, x, offsetY + 15);
+            }
+            // Y-axis labels (every 5 units)
+            for (let y = offsetY % (scale * 5); y < canvas.height; y += scale * 5) {
+                let value = Math.round((offsetY - y) / scale);
+                if (value !== 0) ctx.fillText(value, offsetX - 20, y);
+            }
+
+            // Origin point and label
+            ctx.fillStyle = "#58a6ff";
+            ctx.beginPath();
+            ctx.arc(offsetX, offsetY, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillText("0", offsetX - 15, offsetY + 15);
+        }
+
+        // Initial setup
+        resizeCanvas();
+        drawLine(); // Draw the default line on load
+
+    </script>
+</body>
+</html>
